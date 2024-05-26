@@ -1,6 +1,8 @@
 use std::fs;
 use serde::{Deserialize, Serialize};
 use rand::{rngs::OsRng, seq::SliceRandom, Rng};
+use tokio::sync::MutexGuard;
+use crate::bot::Part;
 
 #[derive(Serialize, Deserialize)]
 pub struct Words {
@@ -8,12 +10,14 @@ pub struct Words {
     pub verb: Vec<Ord>,
     pub adjektiv: Vec<Adjektiv>,
     pub pronomen: Vec<Ord>,
+    pub pronomen_objekt: Vec<Ord>,
+    pub pronomen_possessiv: Vec<Possessiv>,
     pub namn: Vec<Namn>,
     pub bindeord: Vec<Ord>,
     pub tidsord: Vec<Ord>,
     #[serde(skip)]
     #[serde(default)]
-    rng: OsRng,
+    pub rng: OsRng,
 }
 
 impl Words {
@@ -49,7 +53,40 @@ impl Words {
         self.tidsord.choose(&mut self.rng).unwrap()
     }
 
+    pub fn random_pronomen_objekt(&mut self) -> &Ord {
+        self.pronomen_objekt.choose(&mut self.rng).unwrap()
+    }
+
+    pub fn random_possessiv(&mut self) -> &Possessiv {
+        self.pronomen_possessiv.choose(&mut self.rng).unwrap()
+    }
+
+    pub fn random_gendered_substantiv(&mut self, gender: Genus) -> &Substantiv {
+        if gender == Genus::B {
+            self.random_substantiv()
+        } else {
+            let mut rng = OsRng::default();
+            let mut ord = self.substantiv.choose(&mut rng).unwrap();
+            while ord.3 != gender {
+                ord = self.substantiv.choose(&mut rng).unwrap();
+            }
+            ord
+        }
+    }
+
     pub fn random_objekt(&mut self) -> &str {
+        if self.rng.gen_bool(0.4) {
+            if self.rng.gen_bool(0.6) {
+                &self.pronomen_objekt.choose(&mut self.rng).unwrap().0
+            } else {
+                &self.namn.choose(&mut self.rng).unwrap().0
+            }
+        } else {
+            &self.substantiv.choose(&mut self.rng).unwrap().0
+        }
+    }
+
+    pub fn random_subjekt(&mut self) -> &str {
         if self.rng.gen_bool(0.4) {
             if self.rng.gen_bool(0.6) {
                 &self.pronomen.choose(&mut self.rng).unwrap().0
@@ -61,7 +98,24 @@ impl Words {
         }
     }
 
+    pub fn could_verb(&mut self, part: &mut MutexGuard<Part>) -> &str {
+        if **part == Part::Begin {
+            **part = Part::HasVerb;
+            &self.random_verb().0
+        } else {
+            **part = Part::Begin;
+            if self.rng.gen_bool(0.5) {
+                &self.random_bindeord().0
+            } else {
+                "."
+            }
+        }
+    }
+
     pub fn guess_word(&self, query: &str) -> (Category, Option<usize>) {
+        if query == "." {
+            return (Category::Punkt, None);
+        }
         for (i, word) in self.substantiv.iter().enumerate() {
             if word.0 == query || word.1 == query {
                 return (Category::Substantiv, Some(i))
@@ -121,6 +175,9 @@ pub struct Namn (pub String, pub Gender);
 #[derive(Serialize, Deserialize)]
 pub struct Ord (pub String);
 
+#[derive(Serialize, Deserialize)]
+pub struct Possessiv (pub String, pub Genus);
+
 #[derive(Debug)]
 pub enum Category {
     Substantiv,
@@ -130,15 +187,19 @@ pub enum Category {
     Namn,
     Bindeord,
     Tidsord,
+    Punkt,
+    PronomenObjekt,
+    PronomenPossessiv,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub enum Genus {
     N,
     T,
+    B, // båda
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub enum Gender {
     Male,
     Female,
