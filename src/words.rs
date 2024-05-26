@@ -119,6 +119,8 @@ impl Words {
     pub fn guess_word(&self, query: &str) -> (Category, Option<usize>) {
         if query == "." {
             return (Category::Punkt, None);
+        } else if query == "," {
+            return (Category::Komma, None);
         }
         for (i, word) in self.substantiv.iter().enumerate() {
             if word.0 == query || word.1 == query {
@@ -204,6 +206,7 @@ pub enum Category {
     Punkt,
     PronomenObjekt,
     PronomenPossessiv,
+    Komma,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]

@@ -59,6 +59,14 @@ impl EventHandler for Handler {
                     let gender = words.pronomen_possessiv[i].1.clone();
                     &words.random_gendered_substantiv(gender).0
                 }
+                Category::Komma => {
+                    *part = Part::Begin;
+                    if words.rng.gen_bool(0.5) {
+                        words.random_subjekt()
+                    } else {
+                        &words.random_bindeord().0
+                    }
+                }
             };
             if let Err(why) = msg.channel_id.say(&ctx.http, word).await {
                 println!("Error sending message: {why:?}");
