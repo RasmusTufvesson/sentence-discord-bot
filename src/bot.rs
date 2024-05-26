@@ -20,6 +20,11 @@ impl EventHandler for Handler {
         //         println!("Error sending message: {why:?}");
         //     }
         // }
+        if msg.channel_id == include!("../CHANNEL") && msg.author.id != include!("../BOT_ID") {
+            if let Err(why) = msg.channel_id.say(&ctx.http, "Gandalf").await {
+                println!("Error sending message: {why:?}");
+            }
+        }
     }
 
     // Set a handler to be called on the `ready` event. This is called when a shard is booted, and
@@ -35,7 +40,6 @@ impl EventHandler for Handler {
 pub async fn run(token: &str) {
     // Set gateway intents, which decides what events the bot will be notified about
     let intents = GatewayIntents::GUILD_MESSAGES
-        | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
     // Create a new instance of the Client, logging in as a bot. This will automatically prepend
