@@ -2,8 +2,11 @@ use serenity::async_trait;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
+use crate::words::{Category, Words};
 
-struct Handler;
+struct Handler {
+    words: Mutex<Words>,
+}
 
 #[async_trait]
 impl EventHandler for Handler {
@@ -21,7 +24,17 @@ impl EventHandler for Handler {
         //     }
         // }
         if msg.channel_id == include!("../CHANNEL") && msg.author.id != include!("../BOT_ID") {
-            if let Err(why) = msg.channel_id.say(&ctx.http, "Gandalf").await {
+            let mut words = self.words.lock().await;
+            let guess = words.guess_word(&msg.content);
+            println!("{}: {:?}", msg.content, guess);
+            let word = match guess.0 {
+                Category::Substantiv => &words.random_verb().0,
+                Category::Adjektiv => &words.random_substantiv().0,
+                Category::Pronomen => &words.random_verb().0,
+                Category::Namn => &words.random_verb().0,
+                Category::Verb => &words.random_substantiv().0,
+            };
+            if let Err(why) = msg.channel_id.say(&ctx.http, word).await {
                 println!("Error sending message: {why:?}");
             }
         }
@@ -37,7 +50,7 @@ impl EventHandler for Handler {
     }
 }
 
-pub async fn run(token: &str) {
+pub async fn run(token: &str, words: Words) {
     // Set gateway intents, which decides what events the bot will be notified about
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
@@ -45,7 +58,7 @@ pub async fn run(token: &str) {
     // Create a new instance of the Client, logging in as a bot. This will automatically prepend
     // your bot token with "Bot ", which is a requirement by Discord for bot users.
     let mut client =
-        Client::builder(token, intents).event_handler(Handler).await.expect("Err creating client");
+        Client::builder(token, intents).event_handler(Handler { words: Mutex::new(words) }).await.expect("Err creating client");
 
     // Finally, start a single shard, and start listening to events.
     //
