@@ -81,6 +81,8 @@ impl Words {
             } else {
                 &self.namn.choose(&mut self.rng).unwrap().0
             }
+        } else if self.rng.gen_bool(0.5) {
+            &self.random_possessiv().0
         } else {
             &self.substantiv.choose(&mut self.rng).unwrap().0
         }
@@ -93,6 +95,8 @@ impl Words {
             } else {
                 &self.namn.choose(&mut self.rng).unwrap().0
             }
+        } else if self.rng.gen_bool(0.5) {
+            &self.random_possessiv().0
         } else {
             &self.substantiv.choose(&mut self.rng).unwrap().0
         }
@@ -149,6 +153,16 @@ impl Words {
         for (i, word) in self.tidsord.iter().enumerate() {
             if word.0 == query {
                 return (Category::Tidsord, Some(i))
+            }
+        }
+        for (i, word) in self.pronomen_objekt.iter().enumerate() {
+            if word.0 == query {
+                return (Category::PronomenObjekt, Some(i))
+            }
+        }
+        for (i, word) in self.pronomen_possessiv.iter().enumerate() {
+            if word.0 == query {
+                return (Category::PronomenPossessiv, Some(i))
             }
         }
         if let Some(chr) = query.chars().next() {
