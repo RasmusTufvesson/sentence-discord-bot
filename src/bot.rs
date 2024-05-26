@@ -35,7 +35,7 @@ impl EventHandler for Handler {
                 }
                 Category::Bindeord => {
                     *part = Part::Begin;
-                    words.random_objekt()
+                    words.random_subjekt()
                 }
                 Category::Tidsord => words.could_verb(&mut part),
                 Category::Punkt => {
