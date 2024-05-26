@@ -29,10 +29,12 @@ impl EventHandler for Handler {
             println!("{}: {:?}", msg.content, guess);
             let word = match guess.0 {
                 Category::Substantiv => &words.random_verb().0,
-                Category::Adjektiv => &words.random_substantiv().0,
+                Category::Adjektiv => words.random_objekt(),
                 Category::Pronomen => &words.random_verb().0,
                 Category::Namn => &words.random_verb().0,
-                Category::Verb => &words.random_substantiv().0,
+                Category::Verb => words.random_objekt(),
+                Category::Bindeord => words.random_objekt(),
+                Category::Tidsord => words.random_objekt(),
             };
             if let Err(why) = msg.channel_id.say(&ctx.http, word).await {
                 println!("Error sending message: {why:?}");

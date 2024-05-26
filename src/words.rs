@@ -1,14 +1,16 @@
 use std::fs;
 use serde::{Deserialize, Serialize};
-use rand::{seq::SliceRandom, rngs::OsRng};
+use rand::{rngs::OsRng, seq::SliceRandom, Rng};
 
 #[derive(Serialize, Deserialize)]
 pub struct Words {
     pub substantiv: Vec<Substantiv>,
-    pub verb: Vec<Verb>,
+    pub verb: Vec<Ord>,
     pub adjektiv: Vec<Adjektiv>,
-    pub pronomen: Vec<Pronomen>,
+    pub pronomen: Vec<Ord>,
     pub namn: Vec<Namn>,
+    pub bindeord: Vec<Ord>,
+    pub tidsord: Vec<Ord>,
     #[serde(skip)]
     #[serde(default)]
     rng: OsRng,
@@ -27,16 +29,36 @@ impl Words {
         self.substantiv.choose(&mut self.rng).unwrap()
     }
 
-    pub fn random_verb(&mut self) -> &Verb {
+    pub fn random_verb(&mut self) -> &Ord {
         self.verb.choose(&mut self.rng).unwrap()
     }
 
-    pub fn random_pronomen(&mut self) -> &Pronomen {
+    pub fn random_pronomen(&mut self) -> &Ord {
         self.pronomen.choose(&mut self.rng).unwrap()
     }
 
     pub fn random_namn(&mut self) -> &Namn {
         self.namn.choose(&mut self.rng).unwrap()
+    }
+
+    pub fn random_bindeord(&mut self) -> &Ord {
+        self.bindeord.choose(&mut self.rng).unwrap()
+    }
+
+    pub fn random_tidsord(&mut self) -> &Ord {
+        self.tidsord.choose(&mut self.rng).unwrap()
+    }
+
+    pub fn random_objekt(&mut self) -> &str {
+        if self.rng.gen_bool(0.4) {
+            if self.rng.gen_bool(0.6) {
+                &self.pronomen.choose(&mut self.rng).unwrap().0
+            } else {
+                &self.namn.choose(&mut self.rng).unwrap().0
+            }
+        } else {
+            &self.substantiv.choose(&mut self.rng).unwrap().0
+        }
     }
 
     pub fn guess_word(&self, query: &str) -> (Category, Option<usize>) {
@@ -65,6 +87,16 @@ impl Words {
                 return (Category::Namn, Some(i))
             }
         }
+        for (i, word) in self.bindeord.iter().enumerate() {
+            if word.0 == query {
+                return (Category::Bindeord, Some(i))
+            }
+        }
+        for (i, word) in self.tidsord.iter().enumerate() {
+            if word.0 == query {
+                return (Category::Tidsord, Some(i))
+            }
+        }
         if let Some(chr) = query.chars().next() {
             if chr.is_uppercase() {
                 return (Category::Namn, None);
@@ -78,19 +110,16 @@ impl Words {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Substantiv (pub String, pub String, pub Genus);
-
-#[derive(Serialize, Deserialize)]
-pub struct Verb (pub String);
+pub struct Substantiv (pub String, pub String, pub String, pub Genus);
 
 #[derive(Serialize, Deserialize)]
 pub struct Adjektiv (pub String, pub String, pub String);
 
 #[derive(Serialize, Deserialize)]
-pub struct Pronomen (pub String);
+pub struct Namn (pub String, pub Gender);
 
 #[derive(Serialize, Deserialize)]
-pub struct Namn (pub String, pub Gender);
+pub struct Ord (pub String);
 
 #[derive(Debug)]
 pub enum Category {
@@ -99,6 +128,8 @@ pub enum Category {
     Adjektiv,
     Pronomen,
     Namn,
+    Bindeord,
+    Tidsord,
 }
 
 #[derive(Serialize, Deserialize)]
