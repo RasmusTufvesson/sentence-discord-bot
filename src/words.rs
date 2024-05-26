@@ -1,13 +1,12 @@
 use std::fs;
 use serde::{Deserialize, Serialize};
 use rand::{rngs::OsRng, seq::SliceRandom, Rng};
-use tokio::sync::MutexGuard;
 use crate::bot::Part;
 
 #[derive(Serialize, Deserialize)]
 pub struct Words {
     pub substantiv: Vec<Substantiv>,
-    pub verb: Vec<Ord>,
+    pub verb: Vec<Verb>,
     pub adjektiv: Vec<Adjektiv>,
     pub pronomen: Vec<Ord>,
     pub pronomen_objekt: Vec<Ord>,
@@ -15,6 +14,8 @@ pub struct Words {
     pub namn: Vec<Namn>,
     pub bindeord: Vec<Ord>,
     pub tidsord: Vec<Ord>,
+    pub prepositioner: Vec<Ord>,
+    pub artiklar: Vec<Artikel>,
     #[serde(skip)]
     #[serde(default)]
     pub rng: OsRng,
@@ -33,7 +34,7 @@ impl Words {
         self.substantiv.choose(&mut self.rng).unwrap()
     }
 
-    pub fn random_verb(&mut self) -> &Ord {
+    pub fn random_verb(&mut self) -> &Verb {
         self.verb.choose(&mut self.rng).unwrap()
     }
 
@@ -74,7 +75,7 @@ impl Words {
         }
     }
 
-    pub fn random_objekt(&mut self) -> &str {
+    pub fn random_objekt(&mut self, bestämd: &mut bool) -> &str {
         if self.rng.gen_bool(0.4) {
             if self.rng.gen_bool(0.6) {
                 &self.pronomen_objekt.choose(&mut self.rng).unwrap().0
@@ -83,12 +84,16 @@ impl Words {
             }
         } else if self.rng.gen_bool(0.5) {
             &self.random_possessiv().0
+        } else if self.rng.gen_bool(0.5) {
+            &self.substantiv.choose(&mut self.rng).unwrap().1
         } else {
-            &self.substantiv.choose(&mut self.rng).unwrap().0
+            let artikel = self.artiklar.choose(&mut self.rng).unwrap();
+            *bestämd = artikel.2 == Bestämd::Definite;
+            &artikel.0
         }
     }
 
-    pub fn random_subjekt(&mut self) -> &str {
+    pub fn random_subjekt(&mut self, bestämd: &mut bool) -> &str {
         if self.rng.gen_bool(0.4) {
             if self.rng.gen_bool(0.6) {
                 &self.pronomen.choose(&mut self.rng).unwrap().0
@@ -97,17 +102,21 @@ impl Words {
             }
         } else if self.rng.gen_bool(0.5) {
             &self.random_possessiv().0
+        } else if self.rng.gen_bool(0.5) {
+            &self.substantiv.choose(&mut self.rng).unwrap().1
         } else {
-            &self.substantiv.choose(&mut self.rng).unwrap().0
+            let artikel = self.artiklar.choose(&mut self.rng).unwrap();
+            *bestämd = artikel.2 == Bestämd::Definite;
+            &artikel.0
         }
     }
 
-    pub fn could_verb(&mut self, part: &mut MutexGuard<Part>) -> &str {
-        if **part == Part::Begin {
-            **part = Part::HasVerb;
+    pub fn could_verb(&mut self, part: &mut Part) -> &str {
+        if *part == Part::Begin {
+            *part = Part::HasVerb;
             &self.random_verb().0
         } else {
-            **part = Part::Begin;
+            *part = Part::Begin;
             if self.rng.gen_bool(0.5) {
                 &self.random_bindeord().0
             } else {
@@ -167,6 +176,16 @@ impl Words {
                 return (Category::PronomenPossessiv, Some(i))
             }
         }
+        for (i, word) in self.prepositioner.iter().enumerate() {
+            if word.0 == query {
+                return (Category::Preposition, Some(i))
+            }
+        }
+        for (i, word) in self.artiklar.iter().enumerate() {
+            if word.0 == query {
+                return (Category::Artikel, Some(i))
+            }
+        }
         if let Some(chr) = query.chars().next() {
             if chr.is_uppercase() {
                 return (Category::Namn, None);
@@ -194,6 +213,12 @@ pub struct Ord (pub String);
 #[derive(Serialize, Deserialize)]
 pub struct Possessiv (pub String, pub Genus);
 
+#[derive(Serialize, Deserialize)]
+pub struct Verb (pub String, pub Option<Vec<String>>);
+
+#[derive(Serialize, Deserialize)]
+pub struct Artikel (pub String, pub Genus, pub Bestämd);
+
 #[derive(Debug)]
 pub enum Category {
     Substantiv,
@@ -207,6 +232,8 @@ pub enum Category {
     PronomenObjekt,
     PronomenPossessiv,
     Komma,
+    Preposition,
+    Artikel,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -220,4 +247,10 @@ pub enum Genus {
 pub enum Gender {
     Male,
     Female,
+}
+
+#[derive(Serialize, Deserialize, PartialEq)]
+pub enum Bestämd {
+    Definite,
+    Indefinite,
 }
