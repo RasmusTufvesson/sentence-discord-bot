@@ -111,21 +111,30 @@ impl Words {
         }
     }
 
-    pub fn could_verb(&mut self, part: &mut Part) -> &str {
+    pub fn could_verb(&mut self, part: &mut Part, verb: &mut Option<usize>) -> &str {
         if *part == Part::Begin {
             *part = Part::HasVerb;
-            &self.random_verb().0
+            let index = self.rng.gen_range(0..self.verb.len());
+            *verb = Some(index);
+            &self.verb[index].0
         } else {
             *part = Part::Begin;
-            if self.rng.gen_bool(0.5) {
-                &self.random_bindeord().0
-            } else {
-                "."
-            }
+            self.end_of_part()
         }
     }
 
-    pub fn guess_word(&self, query: &str) -> (Category, Option<usize>) {
+    pub fn end_of_part(&mut self) -> &str {
+        if self.rng.gen_bool(0.3) {
+            &self.random_bindeord().0
+        } else if self.rng.gen_bool(0.5) {
+            "."
+        } else {
+            ","
+        }
+    }
+
+    pub fn guess_word(&self, query_pure: &str) -> (Category, Option<usize>) {
+        let query = query_pure.to_lowercase();
         if query == "." {
             return (Category::Punkt, None);
         } else if query == "," {
@@ -152,7 +161,7 @@ impl Words {
             }
         }
         for (i, word) in self.namn.iter().enumerate() {
-            if word.0 == query {
+            if word.0 == query_pure {
                 return (Category::Namn, Some(i))
             }
         }
@@ -186,7 +195,7 @@ impl Words {
                 return (Category::Artikel, Some(i))
             }
         }
-        if let Some(chr) = query.chars().next() {
+        if let Some(chr) = query_pure.chars().next() {
             if chr.is_uppercase() {
                 return (Category::Namn, None);
             }
@@ -214,7 +223,7 @@ pub struct Ord (pub String);
 pub struct Possessiv (pub String, pub Genus);
 
 #[derive(Serialize, Deserialize)]
-pub struct Verb (pub String, pub Option<Vec<String>>);
+pub struct Verb (pub String, pub Vec<(Vec<String>, VerbExpects)>);
 
 #[derive(Serialize, Deserialize)]
 pub struct Artikel (pub String, pub Genus, pub Bestämd);
@@ -253,4 +262,12 @@ pub enum Gender {
 pub enum Bestämd {
     Definite,
     Indefinite,
+}
+
+#[derive(Serialize, Deserialize, PartialEq)]
+pub enum VerbExpects {
+    None,
+    Sub,
+    SubOrAdj,
+    NoneOrSub,
 }

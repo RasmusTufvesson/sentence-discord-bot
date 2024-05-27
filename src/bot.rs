@@ -3,7 +3,7 @@ use serenity::async_trait;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
-use crate::words::{Bestämd, Category, Genus, Words};
+use crate::words::{Bestämd, Category, Genus, VerbExpects, Words};
 
 #[derive(PartialEq, Clone)]
 pub enum Part {
@@ -15,6 +15,7 @@ pub struct Info {
     words: Words,
     part: Part,
     bestämd: bool,
+    verb: Option<usize>,
 }
 
 struct Handler {
@@ -30,8 +31,9 @@ impl EventHandler for Handler {
             println!("{}: {:?}", msg.content, guess);
             let mut part = info.part.clone();
             let mut bestämd = info.bestämd;
+            let mut verb = info.verb;
             let word = match guess.0 {
-                Category::Substantiv => info.words.could_verb(&mut part),
+                Category::Substantiv => info.words.could_verb(&mut part, &mut verb),
                 Category::Adjektiv => {
                     let i = guess.1.unwrap();
                     if info.words.adjektiv[i].0 == msg.content {
@@ -42,20 +44,36 @@ impl EventHandler for Handler {
                         &info.words.random_substantiv().1
                     }
                 }
-                Category::Pronomen => info.words.could_verb(&mut part),
-                Category::Namn => info.words.could_verb(&mut part),
+                Category::Pronomen => info.words.could_verb(&mut part, &mut verb),
+                Category::Namn => info.words.could_verb(&mut part, &mut verb),
                 Category::Verb => {
                     part = Part::HasVerb;
+                    verb = guess.1;
                     if let Some(i) = guess.1 {
-                        if let Some(prepositioner) = &info.words.verb[i].1 {
-                            let choice = prepositioner.choose(&mut OsRng::default()).unwrap();
-                            if choice != "" {
-                                choice
-                            } else {
-                                info.words.random_objekt(&mut bestämd)
-                            }
+                        let mut rng = OsRng::default();
+                        let (group, expects) = info.words.verb[i].1.choose(&mut rng).unwrap();
+                        let choice = group.choose(&mut rng).unwrap();
+                        if choice != "" {
+                            choice
                         } else {
-                            info.words.random_objekt(&mut bestämd)
+                            match expects {
+                                VerbExpects::None => info.words.end_of_part(),
+                                VerbExpects::NoneOrSub => {
+                                    if info.words.rng.gen_bool(0.5) {
+                                        info.words.end_of_part()
+                                    } else {
+                                        info.words.random_objekt(&mut bestämd)
+                                    }
+                                }
+                                VerbExpects::Sub => info.words.random_objekt(&mut bestämd),
+                                VerbExpects::SubOrAdj => {
+                                    if info.words.rng.gen_bool(0.5) {
+                                        &info.words.random_adjektiv().0
+                                    } else {
+                                        info.words.random_objekt(&mut bestämd)
+                                    }
+                                }
+                            }
                         }
                     } else {
                         info.words.random_objekt(&mut bestämd)
@@ -65,7 +83,7 @@ impl EventHandler for Handler {
                     info.part = Part::Begin;
                     info.words.random_subjekt(&mut bestämd)
                 }
-                Category::Tidsord => info.words.could_verb(&mut part),
+                Category::Tidsord => info.words.could_verb(&mut part, &mut verb),
                 Category::Punkt => {
                     info.part = Part::Begin;
                     if info.words.rng.gen_bool(0.5) {
@@ -95,7 +113,43 @@ impl EventHandler for Handler {
                         &info.words.random_bindeord().0
                     }
                 }
-                Category::Preposition => info.words.random_objekt(&mut bestämd),
+                Category::Preposition => {
+                    if let Some(index) = verb {
+                        let mut value = None; 
+                        'outer: for (group, expects) in &info.words.verb[index].1 {
+                            for string in group {
+                                if string == &msg.content {
+                                    value = Some(match expects {
+                                        VerbExpects::None => info.words.end_of_part(),
+                                        VerbExpects::NoneOrSub => {
+                                            if info.words.rng.gen_bool(0.5) {
+                                                info.words.end_of_part()
+                                            } else {
+                                                info.words.random_objekt(&mut bestämd)
+                                            }
+                                        }
+                                        VerbExpects::Sub => info.words.random_objekt(&mut bestämd),
+                                        VerbExpects::SubOrAdj => {
+                                            if info.words.rng.gen_bool(0.5) {
+                                                &info.words.random_adjektiv().0
+                                            } else {
+                                                info.words.random_objekt(&mut bestämd)
+                                            }
+                                        }
+                                    });
+                                    break 'outer;
+                                }
+                            }
+                        }
+                        if let Some(value) = value {
+                            value
+                        } else {
+                            info.words.random_objekt(&mut bestämd)
+                        }
+                    } else {
+                        info.words.random_objekt(&mut bestämd)
+                    }
+                }
                 Category::Artikel => {
                     let i = guess.1.unwrap();
                     let gender = info.words.artiklar[i].1.clone();
@@ -116,6 +170,7 @@ impl EventHandler for Handler {
             }
             info.part = part;
             info.bestämd = bestämd;
+            info.verb = verb;
         }
     }
 
@@ -129,7 +184,7 @@ pub async fn run(token: &str, words: Words) {
         | GatewayIntents::MESSAGE_CONTENT;
 
     let mut client =
-        Client::builder(token, intents).event_handler(Handler { info: Mutex::new(Info { words, part: Part::Begin, bestämd: false }) }).await.expect("Err creating client");
+        Client::builder(token, intents).event_handler(Handler { info: Mutex::new(Info { words, part: Part::Begin, bestämd: false, verb: None }) }).await.expect("Err creating client");
 
     if let Err(why) = client.start().await {
         println!("Client error: {why:?}");
