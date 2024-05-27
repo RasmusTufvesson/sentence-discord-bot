@@ -49,34 +49,38 @@ impl EventHandler for Handler {
                 Category::Verb => {
                     part = Part::HasVerb;
                     verb = guess.1;
-                    if let Some(i) = guess.1 {
-                        let mut rng = OsRng::default();
-                        let (group, expects) = info.words.verb[i].1.choose(&mut rng).unwrap();
-                        let choice = group.choose(&mut rng).unwrap();
-                        if choice != "" {
-                            choice
-                        } else {
-                            match expects {
-                                VerbExpects::None => info.words.end_of_part(),
-                                VerbExpects::NoneOrSub => {
-                                    if info.words.rng.gen_bool(0.5) {
-                                        info.words.end_of_part()
-                                    } else {
-                                        info.words.random_objekt(&mut bestämd)
+                    if info.words.rng.gen_bool(0.4) {
+                        &info.words.random_adverb().0
+                    } else {
+                        if let Some(i) = guess.1 {
+                            let mut rng = OsRng::default();
+                            let (group, expects) = info.words.verb[i].1.choose(&mut rng).unwrap();
+                            let choice = group.choose(&mut rng).unwrap();
+                            if choice != "" {
+                                choice
+                            } else {
+                                match expects {
+                                    VerbExpects::None => info.words.end_of_part(),
+                                    VerbExpects::NoneOrSub => {
+                                        if info.words.rng.gen_bool(0.5) {
+                                            info.words.end_of_part()
+                                        } else {
+                                            info.words.random_objekt(&mut bestämd)
+                                        }
                                     }
-                                }
-                                VerbExpects::Sub => info.words.random_objekt(&mut bestämd),
-                                VerbExpects::SubOrAdj => {
-                                    if info.words.rng.gen_bool(0.5) {
-                                        &info.words.random_adjektiv().0
-                                    } else {
-                                        info.words.random_objekt(&mut bestämd)
+                                    VerbExpects::Sub => info.words.random_objekt(&mut bestämd),
+                                    VerbExpects::SubOrAdj => {
+                                        if info.words.rng.gen_bool(0.5) {
+                                            &info.words.random_adjektiv().0
+                                        } else {
+                                            info.words.random_objekt(&mut bestämd)
+                                        }
                                     }
                                 }
                             }
+                        } else {
+                            info.words.random_objekt(&mut bestämd)
                         }
-                    } else {
-                        info.words.random_objekt(&mut bestämd)
                     }
                 }
                 Category::Bindeord => {
@@ -162,6 +166,37 @@ impl EventHandler for Handler {
                             bestämd = false;
                             &info.words.random_gendered_substantiv(gender).0
                         }
+                    }
+                }
+                Category::Adverb => {
+                    if let Some(i) = verb {
+                        let mut rng = OsRng::default();
+                        let (group, expects) = info.words.verb[i].1.choose(&mut rng).unwrap();
+                        let choice = group.choose(&mut rng).unwrap();
+                        if choice != "" {
+                            choice
+                        } else {
+                            match expects {
+                                VerbExpects::None => info.words.end_of_part(),
+                                VerbExpects::NoneOrSub => {
+                                    if info.words.rng.gen_bool(0.5) {
+                                        info.words.end_of_part()
+                                    } else {
+                                        info.words.random_objekt(&mut bestämd)
+                                    }
+                                }
+                                VerbExpects::Sub => info.words.random_objekt(&mut bestämd),
+                                VerbExpects::SubOrAdj => {
+                                    if info.words.rng.gen_bool(0.5) {
+                                        &info.words.random_adjektiv().0
+                                    } else {
+                                        info.words.random_objekt(&mut bestämd)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        info.words.random_objekt(&mut bestämd)
                     }
                 }
             };

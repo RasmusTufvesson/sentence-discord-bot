@@ -16,6 +16,7 @@ pub struct Words {
     pub tidsord: Vec<Ord>,
     pub prepositioner: Vec<Ord>,
     pub artiklar: Vec<Artikel>,
+    pub adverb: Vec<Ord>,
     #[serde(skip)]
     #[serde(default)]
     pub rng: OsRng,
@@ -60,6 +61,10 @@ impl Words {
 
     pub fn random_possessiv(&mut self) -> &Possessiv {
         self.pronomen_possessiv.choose(&mut self.rng).unwrap()
+    }
+
+    pub fn random_adverb(&mut self) -> &Ord {
+        self.adverb.choose(&mut self.rng).unwrap()
     }
 
     pub fn random_gendered_substantiv(&mut self, gender: Genus) -> &Substantiv {
@@ -195,6 +200,11 @@ impl Words {
                 return (Category::Artikel, Some(i))
             }
         }
+        for (i, word) in self.adverb.iter().enumerate() {
+            if word.0 == query {
+                return (Category::Adverb, Some(i))
+            }
+        }
         if let Some(chr) = query_pure.chars().next() {
             if chr.is_uppercase() {
                 return (Category::Namn, None);
@@ -243,6 +253,7 @@ pub enum Category {
     Komma,
     Preposition,
     Artikel,
+    Adverb,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
